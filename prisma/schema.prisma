@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  medicines   Medicine[]
+}
+
+model Supplier {
+  id            String           @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  address       String?
+  gstNumber     String?
+  contactPerson String?
+  balance       Float            @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  purchaseOrders PurchaseOrder[]
+  batches        MedicineBatch[]
+}
+
+model Medicine {
+  id              String          @id @default(cuid())
+  name            String
+  genericName     String?
+  brandName       String?
+  categoryId      String
+  category        Category        @relation(fields: [categoryId], references: [id])
+  manufacturer    String?
+  description     String?
+  dosageForm      String?
+  strength        String?
+  unit            String          @default("Strip")
+  reorderLevel    Int             @default(10)
+  reorderQty      Int             @default(50)
+  taxRate         Float           @default(0)
+  hsnCode         String?
+  rackLocation    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  batches         MedicineBatch[]
+  saleItems       SaleItem[]
+  substitutes     MedicineSubstitute[] @relation("MedicineToSubstitute")
+  medicines       MedicineSubstitute[] @relation("SubstituteToMedicine")
+}
+
+model MedicineBatch {
+  id            String    @id @default(cuid())
+  medicineId    String
+  medicine      Medicine  @relation(fields: [medicineId], references: [id])
+  batchNo       String
+  expiryDate    DateTime
+  purchasePrice Float
+  sellingPrice  Float
+  mrp           Float?
+  quantity      Int       @default(0)
+  minQuantity   Int       @default(5)
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  purchaseDate  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  saleItems     SaleItem[]
+}
+
+model MedicineSubstitute {
+  id            String   @id @default(cuid())
+  medicineId    String
+  medicine      Medicine  @relation("MedicineToSubstitute", fields: [medicineId], references: [id])
+  substituteId  String
+  substitute    Medicine  @relation("SubstituteToMedicine", fields: [substituteId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@unique([medicineId, substituteId])
+}
+
+model PurchaseOrder {
+  id            String              @id @default(cuid())
+  orderNo       String              @unique
+  supplierId    String
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  date          DateTime            @default(now())
+  expectedDate  DateTime?
+  totalAmount   Float               @default(0)
+  status        String              @default("Pending")
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  items         PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  medicineId      String
+  medicineName    String?
+  batchNo         String?
+  quantity        Int
+  unitPrice       Float
+  total           Float
+  receivedQty     Int           @default(0)
+}
+
+model Sale {
+  id            String     @id @default(cuid())
+  invoiceNo     String     @unique
+  customerName  String?
+  customerPhone String?
+  doctorName    String?
+  prescription  String?
+  subtotal      Float      @default(0)
+  discount      Float      @default(0)
+  tax           Float      @default(0)
+  total         Float      @default(0)
+  paymentMethod String     @default("Cash")
+  status        String     @default("Completed")
+  date          DateTime   @default(now())
+  createdById   String?
+  createdBy     User?      @relation(fields: [createdById], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  items         SaleItem[]
+}
+
+model SaleItem {
+  id            String         @id @default(cuid())
+  saleId        String
+  sale          Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  medicineId    String
+  medicine      Medicine       @relation(fields: [medicineId], references: [id])
+  batchId       String?
+  batch         MedicineBatch? @relation(fields: [batchId], references: [id])
+  medicineName  String?
+  quantity      Int
+  unitPrice     Float
+  discount      Float          @default(0)
+  tax           Float          @default(0)
+  total         Float
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      String   @default("Staff")
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sales     Sale[]
+}
+
+model StockAdjustment {
+  id          String   @id @default(cuid())
+  medicineId  String
+  batchId     String?
+  type        String
+  quantity    Int
+  reason      String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
